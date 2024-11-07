@@ -1,0 +1,93 @@
+---
+title: "World Travels"
+author: "Melissa Albino Hegeman"
+format: html
+execute:
+  echo: false
+  message: false
+  warning: false
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+## #30DayMapChallenge 
+
+### Day 2: Lines
+
+I wanted to make a quick map that will help me visualize all the the places I've been. 
+
+
+```{r}
+#| label: setup
+
+library(tidyverse)
+library(sf)
+library(leaflet)
+
+point_data <- read_csv(here::here("data", "map_points_2024-11-06.csv")) |> 
+  janitor::clean_names() |> 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+  
+home <- point_data |>
+  filter(type == "Home")
+
+away <- point_data |>
+  filter(type == "Away")
+
+
+lines_data <- away |>
+  mutate(
+    # Get coordinates of the single home point
+    home_point = list(st_coordinates(home)[1, ]),
+    # Create matrix of coordinates for each line
+    line_coords = map2(
+      home_point,
+      st_coordinates(geometry),
+      ~matrix(c(.x, .y), ncol = 2, byrow = TRUE)
+    )
+  ) |>
+  # Create LINESTRING geometry from coordinate matrices
+  mutate(
+    geometry = map(line_coords, ~st_linestring(.x))
+  ) |>
+  st_set_geometry("geometry") |>
+  # Ensure proper SF object creation
+  st_as_sf(crs = st_crs(home))
+
+```
+
+
+Let's go ahead and plot this. 
+
+
+```{r}
+#| label: plot
+
+
+ggplot() +
+  geom_sf(data = home, color = "red", size = 2) +
+  geom_sf(data = away, color = "blue", size = 2) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "World Travels", 
+       subtitle = "Where I am from, and where I am going...", 
+       caption = "Data: map_points_2024-11-06.csv") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) +
+  theme(plot.caption = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| label: leaflet
+
+leaflet() |> 
+  addProviderTiles(providers$CartoDB.Positron) |> 
+  addCircleMarkers(data = away, color = "blue", weight = 2) |> 
+  addCircleMarkers(data = home, color = "red", weight = 2)
+
+
+
+```
+
